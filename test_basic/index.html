@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<title>How an AI reads your message</title>
+<meta name="description" content="A visual, animated explanation of how a language model turns your words into numbers — and numbers back into an answer." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230a0e16'/%3E%3Crect x='12' y='16' width='14' height='12' rx='3' fill='%235fdcff'/%3E%3Crect x='30' y='16' width='22' height='12' rx='3' fill='%23b08cff'/%3E%3Crect x='12' y='34' width='24' height='12' rx='3' fill='%23ffc061'/%3E%3Crect x='40' y='34' width='12' height='12' rx='3' fill='%234ff0ae'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="bg" aria-hidden="true">
+  <div class="blob blob1"></div>
+  <div class="blob blob2"></div>
+  <div class="blob blob3"></div>
+  <canvas id="stars"></canvas>
+</div>
+
+<header class="top">
+  <div class="brand">
+    <span class="brand__dot"></span>
+    <h1>How an AI reads your message</h1>
+  </div>
+  <button id="replay" class="btn btn--icon" type="button" aria-label="Play again">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg>
+  </button>
+</header>
+
+<main class="stage" id="stage" aria-live="polite"></main>
+
+<nav class="steps" id="steps" aria-label="Steps"></nav>
+
+<footer class="receipt" id="receipt">
+  <div class="receipt__row">
+    <div class="tick" data-k="chars"><b>0</b><span>characters</span></div>
+    <div class="tick" data-k="bytes"><b>0</b><span>numbers (bytes)</span></div>
+    <div class="tick" data-k="blocks"><b>0</b><span>blocks</span></div>
+    <div class="tick" data-k="tokens"><b>0</b><span>tokens sent to the AI</span></div>
+  </div>
+  <div class="receipt__input">
+    <label class="sr" for="text">Your message</label>
+    <input id="text" type="text" autocomplete="off" spellcheck="false"
+           placeholder="Type anything and watch it turn into tokens…" />
+    <div class="samples" id="samples"></div>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

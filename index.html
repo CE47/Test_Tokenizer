@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark light" />
+<title>Token Lab — how an LLM reads your words</title>
+<meta name="description" content="An interactive, animated, byte-exact walkthrough of how Large Language Models turn text into tokens: UTF-8 bytes, regex pre-tokenisation, byte-pair encoding, token ids, embeddings, attention, and the tokens that come back." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%230b0f17'/%3E%3Cg fill='%2364e0ff'%3E%3Crect x='18' y='24' width='20' height='16' rx='4'/%3E%3Crect x='42' y='24' width='16' height='16' rx='4' fill='%23a97bff'/%3E%3Crect x='62' y='24' width='20' height='16' rx='4' fill='%2352ffb0'/%3E%3Crect x='18' y='46' width='30' height='16' rx='4' fill='%23ffb454'/%3E%3Crect x='52' y='46' width='30' height='16' rx='4' fill='%23ff6b8b'/%3E%3Crect x='18' y='68' width='64' height='10' rx='4' fill='%233a4a63'/%3E%3C/g%3E%3C/svg%3E" />
+<link rel="stylesheet" href="assets/css/app.css" />
+</head>
+<body>
+
+<noscript>
+  <div style="padding:24px;font:15px system-ui;color:#e8eef8">
+    <b>Token Lab needs JavaScript.</b> Everything here — the real tokenizer, the
+    animations, the vocabulary explorer — runs in the browser.
+  </div>
+</noscript>
+
+<a class="skip-link" href="#stage-view">Skip to the visualizer</a>
+
+<!-- ══════════════════════════════════════ ambient background ═══════════ -->
+<div class="bg" aria-hidden="true">
+  <div class="bg__grid"></div>
+  <canvas class="bg__particles" id="bgCanvas"></canvas>
+  <div class="bg__glow bg__glow--a"></div>
+  <div class="bg__glow bg__glow--b"></div>
+  <div class="bg__glow bg__glow--c"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ top bar ═════════ -->
+<header class="topbar">
+  <div class="topbar__brand">
+    <span class="brand__mark" aria-hidden="true">
+      <i></i><i></i><i></i><i></i><i></i>
+    </span>
+    <span class="brand__text">
+      <strong>Token&nbsp;Lab</strong>
+      <small>how an LLM reads your words</small>
+    </span>
+  </div>
+
+  <div class="topbar__tools">
+    <label class="field field--select">
+      <span class="field__label">Tokenizer</span>
+      <select id="encSelect" class="select" aria-label="Choose a tokenizer"></select>
+    </label>
+
+    <div class="segmented" role="group" aria-label="Explanation depth">
+      <button type="button" class="segmented__btn is-active" data-depth="plain">Plain</button>
+      <button type="button" class="segmented__btn" data-depth="deep">Deep</button>
+    </div>
+
+    <button type="button" class="icon-btn" id="helpBtn" aria-label="Open the glossary" title="Glossary">
+      <span aria-hidden="true">?</span>
+    </button>
+  </div>
+</header>
+
+<!-- ═════════════════════════════════════════════════════ main ═════════ -->
+<div class="shell">
+
+  <!-- ───────────────────────────────────────────── stage navigator ────── -->
+  <nav class="rail" id="rail" aria-label="Pipeline stages">
+    <div class="rail__scroll" id="railScroll" role="tablist"></div>
+
+    <div class="rail__play">
+      <button type="button" class="btn btn--primary" id="playBtn">
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="btn__icon"><path d="M8 5v14l11-7z"/></svg>
+        <span class="btn__label">Play the journey</span>
+      </button>
+      <div class="rail__progress"><div class="rail__progressFill" id="railProgress"></div></div>
+      <p class="rail__hint" id="railHint">8 stages · about a minute</p>
+    </div>
+  </nav>
+
+  <!-- ─────────────────────────────────────────────────── stage view ───── -->
+  <main class="view" id="stage-view" tabindex="-1">
+    <div class="view__inner">
+
+      <div class="viewhead">
+        <div class="viewhead__text">
+          <span class="viewhead__step" id="stageStep" role="status" aria-live="polite">Stage 1 of 8</span>
+          <h1 class="viewhead__title" id="stageTitle">Loading…</h1>
+          <p class="viewhead__lede" id="stageLede"></p>
+        </div>
+        <div class="viewhead__controls">
+          <button type="button" class="btn btn--ghost" id="replayBtn" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="btn__icon"><path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg>
+            <span class="btn__label">Replay</span>
+          </button>
+          <div class="speed" role="group" aria-label="Animation speed">
+            <button type="button" class="speed__btn" data-speed="0.5">0.5×</button>
+            <button type="button" class="speed__btn is-active" data-speed="1">1×</button>
+            <button type="button" class="speed__btn" data-speed="2">2×</button>
+          </div>
+        </div>
+      </div>
+
+      <section class="stage" id="stage"></section>
+
+      <div class="stageNav">
+        <button type="button" class="btn btn--ghost" id="prevStage">
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="btn__icon"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4-4.6-4.6z"/></svg>
+          <span class="btn__label">Back</span>
+        </button>
+        <button type="button" class="btn btn--primary" id="nextStage">
+          <span class="btn__label">Next</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="btn__icon"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg>
+        </button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ═════════════════════════════════════════════════ composer ══════════ -->
+<footer class="composer" id="composer">
+  <div class="composer__inner">
+    <div class="composer__samples" id="samples" role="group" aria-label="Example inputs"></div>
+
+    <div class="composer__box">
+      <label class="visually-hidden" for="inputText">Text to tokenise</label>
+      <textarea id="inputText" class="composer__input" rows="2" spellcheck="false"
+        placeholder="Type or paste anything — code, emoji, 中文, whitespace…"></textarea>
+
+      <div class="composer__meta" id="liveStats"></div>
+
+      <div class="composer__actions">
+        <button type="button" class="btn btn--ghost btn--sm" id="clearBtn">Clear</button>
+        <div class="composer__tools">
+          <label class="switch" title="Show byte-level detail for the whole input">
+            <input type="checkbox" id="showBytesToggle" />
+            <span class="switch__track"><span class="switch__dot"></span></span>
+            <span class="switch__label">Byte ruler</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ══════════════════════════════════════════════ drawer / modals ══════ -->
+<div class="drawer" id="drawer" hidden>
+  <div class="drawer__scrim" data-close-drawer></div>
+  <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+    <header class="drawer__head">
+      <h2 id="drawerTitle">Details</h2>
+      <button type="button" class="icon-btn" data-close-drawer aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
+      </button>
+    </header>
+    <div class="drawer__body" id="drawerBody"></div>
+  </aside>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<!-- vocabularies: cl100k is eager, the rest load on demand -->
+<script src="assets/js/data/cl100k_base.js"></script>
+<script src="assets/js/core/pretok.js"></script>
+<script src="assets/js/core/vocab.js"></script>
+<script src="assets/js/core/bpe.js"></script>
+<script src="assets/js/core/tokenizer.js"></script>
+<script src="assets/js/core/model-sim.js"></script>
+<script src="assets/js/core/content.js"></script>
+<script src="assets/js/ui/anim.js"></script>
+<script src="assets/js/ui/dom.js"></script>
+<script src="assets/js/ui/stages.js"></script>
+<script src="assets/js/ui/panels.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
